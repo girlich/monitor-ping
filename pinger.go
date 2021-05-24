@@ -3,7 +3,7 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "io/ioutil"
+    "io"
     "os"
     "sync"
 
@@ -48,7 +48,7 @@ func worker(host *Host) {
 }
 
 func main() {
-    byteValue, err := ioutil.ReadFile(os.Args[1])
+    byteValue, err := io.ReadAll(os.Stdin)
     if err != nil {
         fmt.Println(err)
     }
