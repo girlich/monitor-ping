@@ -1,7 +1,9 @@
 package main
 
 import (
+    "encoding/json"
     "fmt"
+    "io/ioutil"
     "os"
     "sync"
 
@@ -10,7 +12,24 @@ import (
 
 var wg sync.WaitGroup
 
-func worker(ip string) {
+type Network struct {
+    Hosts     []Host     `json:"host"`
+}
+
+type Host struct {
+    Ip          string `json:"ip"`
+/*    Mac         string `json:"mac"` */
+    Name        string `json:"name"`
+/*
+    LinkType    string `json:"linktype"`
+    NamtiveName string `json:"nativeName"`
+    IdBy        string `json:"idBy"`
+    Comment     string `json:"_comment"` */
+    Answer bool `json:"answer"`
+    RttMs string `json:"rtt"`
+}
+
+func worker(ip string, host *Host) {
     defer wg.Done()
     pinger, err := ping.NewPinger(ip)
     pinger.SetPrivileged(true)
@@ -22,16 +41,25 @@ func worker(ip string) {
     pinger.Timeout = 1000000000 // wait for 1s
 
     pinger.OnFinish = func(stats *ping.Statistics) {
-        fmt.Println(ip, stats.PacketsRecv, stats.AvgRtt)
+        host.Answer=stats.PacketsRecv > 0
+        host.RttMs=stats.AvgRtt.String()
     }
     pinger.Run()
 }
 
 func main() {
-    for _, s := range os.Args[1:] {
-        wg.Add(1)
-        go worker(s)
+    byteValue, err := ioutil.ReadFile(os.Args[1])
+    if err != nil {
+        fmt.Println(err)
+    }
+    var network Network
+    json.Unmarshal(byteValue, &network)
+    for i := 0; i<len(network.Hosts); i++ {
+       wg.Add(1)
+       go worker(network.Hosts[i].Ip, &(network.Hosts[i]))
     }
     wg.Wait()
+    networkB, _ := json.Marshal(network)
+    fmt.Println(string(networkB))
 }
 
