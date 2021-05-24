@@ -29,9 +29,9 @@ type Host struct {
     RttMs string `json:"rtt"`
 }
 
-func worker(ip string, host *Host) {
+func worker(host *Host) {
     defer wg.Done()
-    pinger, err := ping.NewPinger(ip)
+    pinger, err := ping.NewPinger(host.Ip)
     pinger.SetPrivileged(true)
 
     if err != nil {
@@ -56,7 +56,7 @@ func main() {
     json.Unmarshal(byteValue, &network)
     for i := 0; i<len(network.Hosts); i++ {
        wg.Add(1)
-       go worker(network.Hosts[i].Ip, &(network.Hosts[i]))
+       go worker(&(network.Hosts[i]))
     }
     wg.Wait()
     networkB, _ := json.Marshal(network)
