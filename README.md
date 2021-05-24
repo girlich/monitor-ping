@@ -1,4 +1,4 @@
 # pinger
 Ping many hosts
-Input is a json file with the hosts and output is a subset of this json file
-enriched with the ping answers.
+reads a json structure from stdin and prints this json structure
+enriched with the ping answers to stdout.
