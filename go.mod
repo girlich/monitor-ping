@@ -1,4 +1,4 @@
-module github.com/girlich/pinger
+module github.com/girlich/monitor-ping
 
 go 1.15
 
