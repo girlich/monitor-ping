@@ -18,7 +18,7 @@ type Network struct {
 
 type Host struct {
     Ip          string `json:"ip"`
-/*    Mac         string `json:"mac"` */
+    Mac         string `json:"mac"`
     Name        string `json:"name"`
 /*
     LinkType    string `json:"linktype"`
