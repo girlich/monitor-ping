@@ -14,6 +14,9 @@ $(BINS) : $(B)_% : $(B).go
 	GOARCH=$* $(ADD_$*) go build -o $@ $<
 	sudo setcap cap_net_raw=+ep $@
 
+indent:
+	go fmt
+
 clean:
 	rm -f $(BINS) $(B)
 
