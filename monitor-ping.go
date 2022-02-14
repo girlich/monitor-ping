@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-        "flag"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -60,13 +60,12 @@ var (
 		},
 		[]string{
 			"name",
-			"ip" })
+			"ip"})
 )
-
 
 func prometheusListen(listen string, network Network) {
 	fmt.Println("listen on " + listen)
-	collectMetrics := func (w http.ResponseWriter, r *http.Request) {
+	collectMetrics := func(w http.ResponseWriter, r *http.Request) {
 		promhttp.Handler().ServeHTTP(w, r)
 	}
 	handlerFromCollectMetrics := http.HandlerFunc(collectMetrics)
