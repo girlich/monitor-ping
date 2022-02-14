@@ -2,12 +2,17 @@ package main
 
 import (
 	"encoding/json"
+        "flag"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"sync"
 
 	"github.com/go-ping/ping"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var wg sync.WaitGroup
@@ -47,18 +52,52 @@ func worker(host *Host) {
 	pinger.Run()
 }
 
+var (
+	RoundTripTime = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "round_trip_time",
+			Help: "Current round trip time to the host",
+		},
+		[]string{
+			"name",
+			"ip" })
+)
+
+
+func prometheusListen(listen string, network Network) {
+	fmt.Println("listen on " + listen)
+	collectMetrics := func (w http.ResponseWriter, r *http.Request) {
+		promhttp.Handler().ServeHTTP(w, r)
+	}
+	handlerFromCollectMetrics := http.HandlerFunc(collectMetrics)
+	http.Handle("/metrics", handlerFromCollectMetrics)
+	log.Fatal(http.ListenAndServe(listen, nil))
+}
+
+func init() {
+	prometheus.MustRegister(RoundTripTime)
+}
+
 func main() {
+	var listen string
+	flag.StringVar(&listen, "listen", "", "thing to listen on (like :1234) for Prometheus requests")
+	flag.Parse()
+
 	byteValue, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		fmt.Println(err)
 	}
 	var network Network
 	json.Unmarshal(byteValue, &network)
-	for i := 0; i < len(network.Hosts); i++ {
-		wg.Add(1)
-		go worker(&(network.Hosts[i]))
+	if listen == "" {
+		for i := 0; i < len(network.Hosts); i++ {
+			wg.Add(1)
+			go worker(&(network.Hosts[i]))
+		}
+		wg.Wait()
+		networkB, _ := json.Marshal(network)
+		fmt.Println(string(networkB))
+	} else {
+		prometheusListen(listen, network)
 	}
-	wg.Wait()
-	networkB, _ := json.Marshal(network)
-	fmt.Println(string(networkB))
 }
