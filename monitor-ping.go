@@ -30,8 +30,9 @@ type Host struct {
 	   NamtiveName string `json:"nativeName"`
 	   IdBy        string `json:"idBy"`
 	   Comment     string `json:"_comment"` */
-	Answer bool   `json:"answer"`
-	RttMs  string `json:"rtt"`
+	Answer bool    `json:"answer"`
+	RttMs  string  `json:"rtt"`
+	Rtt    float64 `json:"rtts"`
 }
 
 func worker(host *Host) {
@@ -47,7 +48,8 @@ func worker(host *Host) {
 
 	pinger.OnFinish = func(stats *ping.Statistics) {
 		host.Answer = stats.PacketsRecv > 0
-		host.RttMs = stats.AvgRtt.String()
+		host.RttMs  = stats.AvgRtt.String()
+		host.Rtt    = stats.AvgRtt.Seconds()
 	}
 	pinger.Run()
 }
@@ -66,6 +68,14 @@ var (
 func prometheusListen(listen string, network Network) {
 	fmt.Println("listen on " + listen)
 	collectMetrics := func(w http.ResponseWriter, r *http.Request) {
+		for i := 0; i < len(network.Hosts); i++ {
+			wg.Add(1)
+			go worker(&(network.Hosts[i]))
+		}
+		wg.Wait()
+		for _, host := range network.Hosts {
+			RoundTripTime.With(prometheus.Labels{"name":host.Name, "ip":host.Ip}).Set(host.Rtt)
+		}
 		promhttp.Handler().ServeHTTP(w, r)
 	}
 	handlerFromCollectMetrics := http.HandlerFunc(collectMetrics)
