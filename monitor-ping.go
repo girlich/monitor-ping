@@ -76,6 +76,8 @@ func prometheusListen(listen string, network Network) {
 		for _, host := range network.Hosts {
 			if host.Answer {
 				RoundTripTime.With(prometheus.Labels{"name":host.Name, "ip":host.Ip}).Set(host.Rtt)
+			} else {
+				RoundTripTime.Delete(prometheus.Labels{"name":host.Name, "ip":host.Ip})
 			}
 		}
 		promhttp.Handler().ServeHTTP(w, r)
