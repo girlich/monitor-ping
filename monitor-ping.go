@@ -54,41 +54,52 @@ func worker(host *Host) {
 	pinger.Run()
 }
 
-var (
-	RoundTripTime = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "round_trip_time",
-			Help: "Current round trip time to the host",
-		},
-		[]string{
-			"name",
-			"ip"})
-)
-
-func prometheusListen(listen string, network Network) {
-	fmt.Println("listen on " + listen)
-	collectMetrics := func(w http.ResponseWriter, r *http.Request) {
-		for i := 0; i < len(network.Hosts); i++ {
-			wg.Add(1)
-			go worker(&(network.Hosts[i]))
-		}
-		wg.Wait()
-		for _, host := range network.Hosts {
-			if host.Answer {
-				RoundTripTime.With(prometheus.Labels{"name":host.Name, "ip":host.Ip}).Set(host.Rtt)
-			} else {
-				RoundTripTime.Delete(prometheus.Labels{"name":host.Name, "ip":host.Ip})
-			}
-		}
-		promhttp.Handler().ServeHTTP(w, r)
-	}
-	handlerFromCollectMetrics := http.HandlerFunc(collectMetrics)
-	http.Handle("/metrics", handlerFromCollectMetrics)
-	log.Fatal(http.ListenAndServe(listen, nil))
+type NetworkCollector struct {
+	Network *Network
 }
 
-func init() {
-	prometheus.MustRegister(RoundTripTime)
+var (
+	roundTripTimeDesc = prometheus.NewDesc(
+		"round_trip_time",
+		"Current round trip time to the host",
+		[]string{
+			"name",
+			"ip"},
+		nil,
+	)
+)
+
+func (nc NetworkCollector) Describe(ch chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(nc, ch)
+}
+
+func (nc NetworkCollector) Collect(ch chan<- prometheus.Metric) {
+	for i := 0; i < len(nc.Network.Hosts); i++ {
+		wg.Add(1)
+		go worker(&(nc.Network.Hosts[i]))
+	}
+	wg.Wait()
+	for _, host := range nc.Network.Hosts {
+		if host.Answer {
+			ch <- prometheus.MustNewConstMetric(
+			roundTripTimeDesc,
+			prometheus.GaugeValue,
+			float64(host.Rtt),
+			host.Name,
+			host.Ip,
+			)
+		}
+	}
+}
+
+func prometheusListen(listen string, network Network) {
+	registry := prometheus.NewRegistry()
+	fmt.Println("listen on " + listen)
+	nc := NetworkCollector{Network: &network}
+	registry.MustRegister(nc)
+	handlerFromCollectMetrics := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	http.Handle("/metrics", handlerFromCollectMetrics)
+	log.Fatal(http.ListenAndServe(listen, nil))
 }
 
 func main() {
