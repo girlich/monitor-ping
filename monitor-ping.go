@@ -64,7 +64,8 @@ var (
 		"Current round trip time to the host",
 		[]string{
 			"name",
-			"ip"},
+			"ip",
+			"mac"},
 		nil,
 	)
 )
@@ -87,6 +88,7 @@ func (nc NetworkCollector) Collect(ch chan<- prometheus.Metric) {
 			float64(host.Rtt),
 			host.Name,
 			host.Ip,
+			host.Mac,
 			)
 		}
 	}
